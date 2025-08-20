@@ -30,7 +30,9 @@ import {
   Tab,
   Alert,
   Breadcrumbs,
-  Link
+  Link,
+  TextField,
+  InputAdornment
 } from '@mui/material'
 import {
   PersonAdd,
@@ -41,7 +43,9 @@ import {
   KeyboardArrowUp,
   ArrowBack,
   Home,
-  Person
+  Person,
+  DateRange,
+  Clear
 } from '@mui/icons-material'
 import TableLoader from '../../../components/TableLoader'
 import EmptyState from '../../../components/EmptyState'
@@ -99,6 +103,7 @@ export default function ClientePage() {
   const [cargandoDetalles, setCargandoDetalles] = useState<Set<string>>(new Set())
   const [paginaFacturas, setPaginaFacturas] = useState(0)
   const [totalFacturas, setTotalFacturas] = useState(0)
+  const [filtroFecha, setFiltroFecha] = useState('')
   const filasPorPagina = 20
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -107,6 +112,39 @@ export default function ClientePage() {
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPaginaFacturas(newPage)
+  }
+
+  // Función para filtrar facturas por fecha
+  const filtrarFacturasPorFecha = (facturas: any[], fechaBusqueda: string) => {
+    if (!fechaBusqueda.trim()) return facturas
+    
+    return facturas.filter(factura => {
+      // Usar los mismos campos que en la visualización
+      const fechaFactura = factura.FactFecha || factura.fecha
+      if (!fechaFactura) return false
+      
+      try {
+        // Convertir la fecha de la factura a formato dd/mm/aaaa
+        const fecha = new Date(fechaFactura)
+        
+        // Formatear manualmente para asegurar formato dd/mm/aaaa
+        const dia = fecha.getDate().toString().padStart(2, '0')
+        const mes = (fecha.getMonth() + 1).toString().padStart(2, '0')
+        const año = fecha.getFullYear().toString()
+        const fechaFormateada = `${dia}/${mes}/${año}`
+        
+        // Buscar coincidencia parcial o completa
+        return fechaFormateada.includes(fechaBusqueda)
+      } catch (error) {
+        console.error('Error al formatear fecha:', error)
+        return false
+      }
+    })
+  }
+
+  // Manejar cambio de filtro instantáneo
+  const handleFiltroFechaChange = (valor: string) => {
+    setFiltroFecha(valor)
   }
 
   // Cargar datos del cliente
@@ -159,7 +197,8 @@ export default function ClientePage() {
   useEffect(() => {
     const cargarDetallesVisibles = async () => {
       if (facturas.length > 0 && tabValue === 3) {
-        const facturasPaginadas = facturas.slice(
+        const facturasFiltradas = filtrarFacturasPorFecha(facturas, filtroFecha)
+        const facturasPaginadas = facturasFiltradas.slice(
           paginaFacturas * filasPorPagina,
           paginaFacturas * filasPorPagina + filasPorPagina
         )
@@ -174,7 +213,12 @@ export default function ClientePage() {
     }
 
     cargarDetallesVisibles()
-  }, [facturas, tabValue, clienteId, detallesFactura, cargandoDetalles, paginaFacturas])
+  }, [facturas, tabValue, clienteId, detallesFactura, cargandoDetalles, paginaFacturas, filtroFecha])
+
+  // Resetear página cuando cambie el filtro de fecha
+  useEffect(() => {
+    setPaginaFacturas(0)
+  }, [filtroFecha])
 
   // Función para cargar detalles de factura
   const cargarDetalleFactura = async (facturaId: string, factura: any) => {
@@ -292,8 +336,11 @@ export default function ClientePage() {
     )
   }
 
+  // Obtener facturas filtradas
+  const facturasFiltradas = filtrarFacturasPorFecha(facturas, filtroFecha)
+  
   // Obtener facturas paginadas
-  const facturasPaginadas = facturas.slice(
+  const facturasPaginadas = facturasFiltradas.slice(
     paginaFacturas * filasPorPagina,
     paginaFacturas * filasPorPagina + filasPorPagina
   )
@@ -607,6 +654,43 @@ export default function ClientePage() {
               Facturas ({totalFacturas} total)
             </Typography>
             
+            {/* Campo de búsqueda por fecha */}
+            <Box sx={{ mb: 2 }}>
+              <TextField
+                 size="small"
+                 placeholder="Buscar por fecha (dd/mm/aaaa)"
+                 value={filtroFecha}
+                 onChange={(e) => handleFiltroFechaChange(e.target.value)}
+                 inputProps={{
+                   maxLength: 10
+                 }}
+                 InputProps={{
+                   startAdornment: (
+                     <InputAdornment position="start">
+                       <DateRange sx={{ color: 'action.active' }} />
+                     </InputAdornment>
+                   ),
+                   endAdornment: filtroFecha && (
+                     <InputAdornment position="end">
+                       <IconButton
+                         size="small"
+                         onClick={() => handleFiltroFechaChange('')}
+                         edge="end"
+                       >
+                         <Clear />
+                       </IconButton>
+                     </InputAdornment>
+                   )
+                 }}
+                 sx={{ minWidth: 250 }}
+               />
+              {filtroFecha && (
+                <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                  {facturasFiltradas.length} de {totalFacturas} facturas
+                </Typography>
+              )}
+            </Box>
+            
             {facturas.length > 0 ? (
               <>
                 <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 600, overflowX: 'hidden' }}>
@@ -711,10 +795,10 @@ export default function ClientePage() {
                                               <TableCell align="center" sx={{ p: 1, width: '8%' }}><strong>Cantidad</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Precio Unit.</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>%Dto</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto con dto</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '10%' }}><strong>IVA</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>Total</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>%Dto</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto con dto</strong></TableCell>
                                             </TableRow>
                                           </TableHead>
                                           <TableBody>
@@ -742,22 +826,22 @@ export default function ClientePage() {
                                                 <TableCell align="right" sx={{ p: 1, width: '12%' }}>
                                                   ${(detalle.DeNetGr || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                                 </TableCell>
+                                                <TableCell align="right" sx={{ p: 1, width: '10%' }}>
+                                                  ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                </TableCell>
                                                 <TableCell align="right" sx={{ p: 1, width: '8%' }}>
-                                                   {detalle.DePorDes || 0}%
-                                                 </TableCell>
-                                                 <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                   <Typography variant="body2" fontWeight="medium" color="success.main">
-                                                     ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                   </Typography>
-                                                 </TableCell>
-                                                 <TableCell align="right" sx={{ p: 1, width: '10%' }}>
-                                                   ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                 </TableCell>
-                                                 <TableCell align="right" sx={{ p: 1, width: '8%' }}>
-                                                   <Typography variant="body2" fontWeight="bold" color="success.main">
-                                                     ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                   </Typography>
-                                                 </TableCell>
+                                                  <Typography variant="body2" fontWeight="bold" color="success.main">
+                                                    ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                  </Typography>
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ p: 1, width: '8%' }}>
+                                                  {detalle.DePorDes || 0}%
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ p: 1, width: '12%' }}>
+                                                  <Typography variant="body2" fontWeight="medium" color="success.main">
+                                                    ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                  </Typography>
+                                                </TableCell>
                                               </TableRow>
                                             ))}
                                           </TableBody>
@@ -835,10 +919,10 @@ export default function ClientePage() {
                                                   <TableCell align="center" sx={{ p: 1, width: '8%' }}><strong>Cantidad</strong></TableCell>
                                                   <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Precio Unit.</strong></TableCell>
                                                   <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto</strong></TableCell>
-                                                  <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>%Dto</strong></TableCell>
-                                                  <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto con dto</strong></TableCell>
                                                   <TableCell align="right" sx={{ p: 1, width: '10%' }}><strong>IVA</strong></TableCell>
                                                   <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>Total</strong></TableCell>
+                                                  <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>%Dto</strong></TableCell>
+                                                  <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto con dto</strong></TableCell>
                                                 </TableRow>
                                               </TableHead>
                                               <TableBody>
@@ -866,22 +950,22 @@ export default function ClientePage() {
                                                     <TableCell align="right" sx={{ p: 1, width: '12%' }}>
                                                       ${(detalle.DeNetGr || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                                                     </TableCell>
+                                                    <TableCell align="right" sx={{ p: 1, width: '10%' }}>
+                                                      ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                    </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '8%' }}>
-                                                       {detalle.DePorDes || 0}%
-                                                     </TableCell>
-                                                     <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                       <Typography variant="body2" fontWeight="medium" color="success.main">
-                                                         ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                       </Typography>
-                                                     </TableCell>
-                                                     <TableCell align="right" sx={{ p: 1, width: '10%' }}>
-                                                       ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                     </TableCell>
-                                                     <TableCell align="right" sx={{ p: 1, width: '8%' }}>
-                                                       <Typography variant="body2" fontWeight="bold" color="success.main">
-                                                         ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                       </Typography>
-                                                     </TableCell>
+                                                      <Typography variant="body2" fontWeight="bold" color="success.main">
+                                                        ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                      </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ p: 1, width: '8%' }}>
+                                                      {detalle.DePorDes || 0}%
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{ p: 1, width: '12%' }}>
+                                                      <Typography variant="body2" fontWeight="medium" color="success.main">
+                                                        ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                      </Typography>
+                                                    </TableCell>
                                                   </TableRow>
                                                 ))}
                                               </TableBody>
@@ -910,7 +994,7 @@ export default function ClientePage() {
                 {/* Paginación */}
                 <TablePagination
                   component="div"
-                  count={totalFacturas}
+                  count={facturasFiltradas.length}
                   page={paginaFacturas}
                   onPageChange={handleChangePage}
                   rowsPerPage={filasPorPagina}
