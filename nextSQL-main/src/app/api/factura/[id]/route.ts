@@ -6,22 +6,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-    const facturaId = parseInt(id)
+    const { searchParams } = new URL(request.url)
+    const cveNroId = parseInt(searchParams.get('cveNroId') || '0')
+    const faTipFa = searchParams.get('faTipFa') || ''
+    const faNroF1 = parseInt(searchParams.get('faNroF1') || '0')
+    const faNroF2 = parseInt(searchParams.get('faNroF2') || '0')
     
-    if (isNaN(facturaId)) {
+    if (!cveNroId || !faTipFa || !faNroF1 || !faNroF2) {
       return NextResponse.json(
         {
           success: false,
-          error: 'ID de factura inválido'
+          error: 'Faltan parámetros requeridos: cveNroId, faTipFa, faNroF1, faNroF2'
         },
         { status: 400 }
       )
     }
     
-    console.log(`[API FACTURA-DETALLE] 🔍 Obteniendo detalle para factura ID: ${facturaId}`)
+    const facturaKeys = { CVeNroId: cveNroId, FaTipFa: faTipFa, FaNroF1: faNroF1, FaNroF2: faNroF2 }
+    console.log(`[API FACTURA-DETALLE] 🔍 Obteniendo detalle para factura:`, facturaKeys)
     
-    const detalles = await obtenerDetalleFactura(facturaId)
+    const detalles = await obtenerDetalleFactura(facturaKeys)
     
     console.log(`[API FACTURA-DETALLE] ✅ ${detalles.length} detalles obtenidos`)
     
@@ -29,7 +33,7 @@ export async function GET(
       success: true,
       data: detalles,
       count: detalles.length,
-      facturaId: facturaId
+      facturaKeys: facturaKeys
     })
     
   } catch (error: any) {
