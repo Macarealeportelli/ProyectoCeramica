@@ -315,6 +315,11 @@ export interface DatosRelacionados {
     DeuImpor: number
     DeuSaldo: number
     DeuFecha: string
+    DeuCodCom: number
+    DeuTipfa: string
+    DeuNroF1: number
+    DeuNroF2: number
+    DeudaNumero: string
   }[]
   movimientos?: {
     SucNroId: number
@@ -464,15 +469,27 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
           .input('id', entidadId)
           .query(`
           SELECT TOP 10
-            SucNroId,
-            DeuNroId,
-            EntNroId,
-            DeuImpor,
-            DeuSaldo,
-            DeuFecha
-          FROM CCT_Deudas 
-          WHERE EntNroId = @id
-          ORDER BY DeuFecha DESC, DeuNroId DESC
+            cd.SucNroId,
+            cd.DeuNroId,
+            cd.EntNroId,
+            cd.DeuImpor,
+            cd.DeuSaldo,
+            cd.DeuFecha,
+            cd.DeuCodCom,
+            cd.DeuTipfa,
+            cd.DeuNroF1,
+            cd.DeuNroF2,
+            ISNULL(
+              SUBSTRING(ISNULL(cc.CCCDescr, ''), 1, 3) + ' ' + 
+              ISNULL(cd.DeuTipfa, '') + '-' + 
+              RIGHT('0000' + ISNULL(CAST(cd.DeuNroF1 as NVARCHAR), '0'), 4) + '-' + 
+              RIGHT('00000000' + ISNULL(CAST(cd.DeuNroF2 as NVARCHAR), '0'), 8),
+              cd.DeuNroId
+            ) as DeudaNumero
+          FROM CCT_Deudas cd WITH (NOLOCK)
+          LEFT JOIN CCT_CODCCT cc WITH (NOLOCK) ON cd.DeuCodCom = cc.CCCNroId
+          WHERE cd.EntNroId = @id
+          ORDER BY cd.DeuFecha DESC, cd.DeuNroId DESC
         `)
       
       if (deudaResult.recordset.length > 0) {

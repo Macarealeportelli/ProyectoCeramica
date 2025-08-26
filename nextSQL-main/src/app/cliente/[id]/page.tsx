@@ -519,7 +519,7 @@ export default function ClientePage() {
               <AccountBalance sx={{ mr: 1 }} />
               Deuda
             </Typography>
-            {datosCliente.deuda && datosCliente.deuda.length > 0 ? (
+            {datosCliente.deuda && datosCliente.deuda.filter((deuda: any) => deuda.DeuSaldo !== 0).length > 0 ? (
               <TableContainer component={Paper} variant="outlined">
                 <Table size="small">
                   <TableHead>
@@ -532,10 +532,19 @@ export default function ClientePage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {datosCliente.deuda.map((deuda: any, index: number) => (
+                    {datosCliente.deuda
+                      .filter((deuda: any) => deuda.DeuSaldo !== 0)
+                      .map((deuda: any, index: number) => (
                       <TableRow key={`${deuda.DeuNroId}-${index}`}>
                         <TableCell>{deuda.SucNroId}</TableCell>
-                        <TableCell>{deuda.DeuNroId}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={deuda.DeudaNumero || deuda.DeuNroId} 
+                            color="info" 
+                            variant="outlined" 
+                            size="small" 
+                          />
+                        </TableCell>
                         <TableCell>
                           {deuda.DeuFecha ? new Date(deuda.DeuFecha).toLocaleDateString('es-AR') : 'Sin fecha'}
                         </TableCell>
@@ -551,6 +560,27 @@ export default function ClientePage() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {/* Fila de Total */}
+                    <TableRow sx={{ bgcolor: 'grey.200', fontWeight: 'bold' }}>
+                      <TableCell colSpan={4} align="right">
+                        <Typography variant="body1" fontWeight="bold">
+                          TOTAL DEUDA:
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Chip 
+                          label={`$${datosCliente.deuda
+                            .filter((deuda: any) => deuda.DeuSaldo !== 0)
+                            .reduce((total: number, deuda: any) => total + (deuda.DeuSaldo || 0), 0)
+                            .toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                          color={datosCliente.deuda
+                            .filter((deuda: any) => deuda.DeuSaldo !== 0)
+                            .reduce((total: number, deuda: any) => total + (deuda.DeuSaldo || 0), 0) > 0 ? 'error' : 'success'}
+                          size="medium"
+                          sx={{ fontWeight: 'bold' }}
+                        />
+                      </TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </TableContainer>

@@ -181,11 +181,14 @@ export default function DatosPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.100' }}>
-      <Header title="Gestión de Entidades" />
+      <Header title="Gestión de Clientes" />
       <Container maxWidth="xl">
         {/* Header */}
         <Box sx={{ mb: 4, mt: 4 }}>
-          <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: syndeoColors.primary.main, display: 'flex', alignItems: 'center', gap: 2 }}>            <TableChart sx={{ fontSize: 40, color: syndeoColors.secondary.main }} />            Dashboard de Gestión de Entidades          </Typography>          <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>            Sistema integral de gestión de clientes, proveedores y facturas          </Typography>
+          <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: syndeoColors.primary.main, display: 'flex', alignItems: 'center', gap: 2 }}>
+            <People sx={{ fontSize: 40, color: syndeoColors.secondary.main }} />
+            Gestión de Clientes
+          </Typography>
         </Box>
 
         {error ? (
@@ -202,7 +205,6 @@ export default function DatosPage() {
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TableChart />
                       Datos completos ({filteredDatos.length.toLocaleString()} de {datos.length.toLocaleString()} registros)
                     </Typography>
                     <TextField
