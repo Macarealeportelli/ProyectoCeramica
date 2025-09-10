@@ -463,7 +463,7 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
       console.log(`[RELACIONADOS] ⚠️ No se encontró proveedor para ID ${entidadId}:`, errorMessage)
     }
     
-    // Buscar deudas relacionadas con la entidad
+    // Buscar deudas relacionadas con la entidad (solo clientes CLI)
     try {
       const deudaResult = await pool.request()
           .input('id', entidadId)
@@ -485,37 +485,41 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
               RIGHT('0000' + ISNULL(CAST(cd.DeuNroF1 as NVARCHAR), '0'), 4) + '-' + 
               RIGHT('00000000' + ISNULL(CAST(cd.DeuNroF2 as NVARCHAR), '0'), 8),
               cd.DeuNroId
-            ) as DeudaNumero
+            ) as DeudaNumero,
+            'CLI' as TipoEntidad
           FROM CCT_Deudas cd WITH (NOLOCK)
           LEFT JOIN CCT_CODCCT cc WITH (NOLOCK) ON cd.DeuCodCom = cc.CCCNroId
+          INNER JOIN CLIE_MAECLIENTES cli WITH (NOLOCK) ON cd.EntNroId = cli.CliNroId
           WHERE cd.EntNroId = @id
           ORDER BY cd.DeuFecha DESC, cd.DeuNroId DESC
         `)
       
       if (deudaResult.recordset.length > 0) {
         resultado.deuda = deudaResult.recordset
-        console.log(`[RELACIONADOS] ✅ ${deudaResult.recordset.length} deudas encontradas para ID ${entidadId}`)
+        console.log(`[RELACIONADOS] ✅ ${deudaResult.recordset.length} deudas de clientes encontradas para ID ${entidadId}`)
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-      console.log(`[RELACIONADOS] ⚠️ No se encontraron deudas para ID ${entidadId}:`, errorMessage)
+      console.log(`[RELACIONADOS] ⚠️ No se encontraron deudas de clientes para ID ${entidadId}:`, errorMessage)
     }
     
-    // Buscar movimientos relacionados con la entidad (optimizado)
+    // Buscar movimientos relacionados con la entidad (solo clientes CLI)
     try {
       const movimResult = await pool.request()
         .input('id', entidadId)
         .query(`
           SELECT TOP 5
-            SucNroId,
-            MovNroId,
-            CtmNroId,
-            EntNroId,
-            MovImpor,
-            MovFecha
-          FROM CCT_MOVIM 
-          WHERE EntNroId = @id
-          ORDER BY MovFecha DESC, MovNroId DESC
+            m.SucNroId,
+            m.MovNroId,
+            m.CtmNroId,
+            m.EntNroId,
+            m.MovImpor,
+            m.MovFecha,
+            'CLI' as TipoEntidad
+          FROM CCT_MOVIM m WITH (NOLOCK)
+          INNER JOIN CLIE_MAECLIENTES cli WITH (NOLOCK) ON m.EntNroId = cli.CliNroId
+          WHERE m.EntNroId = @id
+          ORDER BY m.MovFecha DESC, m.MovNroId DESC
         `)
       
       if (movimResult.recordset.length > 0) {
@@ -658,10 +662,11 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
               ELSE 0
             END as Haber
           FROM (
-            SELECT TOP 3 SucNroId, MovNroId, CtmNroId, EntNroId, MovImpor, MovFecha
-            FROM CCT_MOVIM WITH (NOLOCK)
-            WHERE EntNroId = @id
-            ORDER BY MovFecha DESC, MovNroId DESC
+            SELECT TOP 3 m.SucNroId, m.MovNroId, m.CtmNroId, m.EntNroId, m.MovImpor, m.MovFecha
+            FROM CCT_MOVIM m WITH (NOLOCK)
+            INNER JOIN CLIE_MAECLIENTES cli WITH (NOLOCK) ON m.EntNroId = cli.CliNroId
+            WHERE m.EntNroId = @id
+            ORDER BY m.MovFecha DESC, m.MovNroId DESC
           ) m
           LEFT JOIN CCT_MOVIMCCT_MOVIMLEVEL1 ml WITH (NOLOCK) ON m.MovNroId = ml.MovNroId
           LEFT JOIN CCT_CODCCT cc WITH (NOLOCK) ON ml.CCCNroId = cc.CCCNroId
