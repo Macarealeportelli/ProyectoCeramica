@@ -34,17 +34,17 @@ export async function GET(request: NextRequest) {
     
     console.log(`[ESTADISTICAS_VENTAS] Consultando datos para ${currentMonth}/${currentYear}`)
 
-    // Query para obtener total de ventas mensuales
+    // Query para obtener total de ventas mensuales (incluyendo notas de crédito como valores negativos)
     const ventasQuery = `
       SELECT 
-        COUNT(*) as TotalVentas,
-        SUM(ISNULL(vf.FaTotal, 0)) as TotalFacturacion,
-        AVG(ISNULL(vf.FaTotal, 0)) as PromedioVenta
+        COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as TotalVentas,
+        SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturacion,
+        SUM(ISNULL(vf.FaNetGr, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturacionNetoGravado,
+        AVG(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf.FaTotal, 0) END) as PromedioVenta
       FROM VEN_FACTUR vf
       LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
       WHERE MONTH(vf.FaFecha) = @mes 
         AND YEAR(vf.FaFecha) = @anio
-        AND ISNULL(vc.CVeSigno, 1) > 0  -- Solo facturas positivas (no notas de crédito)
     `
 
     const ventasResult = await pool.request()
@@ -52,13 +52,19 @@ export async function GET(request: NextRequest) {
       .input('anio', currentYear)
       .query(ventasQuery)
 
-    // Query para obtener artículos más vendidos del mes
+    // Query para obtener artículos más vendidos - incluyendo notas de crédito
     const articulosQuery = `
       SELECT TOP 5
         art.ArtDescr as Descripcion,
         art.ArtCodigo as Codigo,
-        SUM(ISNULL(vf1.DeCanti, 0)) as CantidadVendida,
-        SUM(ISNULL(vf1.DeTotal, 0)) as TotalVentas
+        SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END) as CantidadVendida,
+        SUM(ISNULL(vf1.DeTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalVentas,
+        SUM((ISNULL(vf1.DeNetGr, 0) - (ISNULL(vf1.DePorDes, 0) * ISNULL(vf1.DeNetGr, 0) / 100)) * ISNULL(vc.CVeSigno, 1)) as TotalNetoGravadoConDescuento,
+        CASE 
+          WHEN SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END) > 0 
+          THEN SUM(ISNULL(vf1.DeTotal, 0) * ISNULL(vc.CVeSigno, 1)) / SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END)
+          ELSE 0 
+        END as PrecioUnitarioPonderado
       FROM VEN_FACTUR vf
       INNER JOIN VEN_FACTUR1 vf1 ON vf.FaNroF1 = vf1.FaNroF1 
         AND vf.FaNroF2 = vf1.FaNroF2 
@@ -68,10 +74,9 @@ export async function GET(request: NextRequest) {
       LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
       WHERE MONTH(vf.FaFecha) = @mes 
         AND YEAR(vf.FaFecha) = @anio
-        AND ISNULL(vc.CVeSigno, 1) > 0  -- Solo facturas positivas
         AND vf1.DeCanti > 0
       GROUP BY art.ArtDescr, art.ArtCodigo
-      ORDER BY SUM(ISNULL(vf1.DeCanti, 0)) DESC
+      ORDER BY SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END) DESC
     `
 
     const articulosResult = await pool.request()
@@ -79,17 +84,16 @@ export async function GET(request: NextRequest) {
       .input('anio', currentYear)
       .query(articulosQuery)
 
-    // Query para obtener ventas por día del mes (para gráfico)
+    // Query para obtener ventas por día del mes (para gráfico) - incluyendo notas de crédito
     const ventasDiariasQuery = `
       SELECT 
         DAY(vf.FaFecha) as Dia,
-        COUNT(*) as CantidadVentas,
-        SUM(ISNULL(vf.FaTotal, 0)) as TotalDia
+        COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as CantidadVentas,
+        SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalDia
       FROM VEN_FACTUR vf
       LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
       WHERE MONTH(vf.FaFecha) = @mes 
         AND YEAR(vf.FaFecha) = @anio
-        AND ISNULL(vc.CVeSigno, 1) > 0
       GROUP BY DAY(vf.FaFecha)
       ORDER BY DAY(vf.FaFecha)
     `
@@ -99,22 +103,95 @@ export async function GET(request: NextRequest) {
       .input('anio', currentYear)
       .query(ventasDiariasQuery)
 
+    // Query para obtener ranking de clientes por facturación mensual con detalle de productos
+    const clientesRankingQuery = `
+      SELECT TOP 15
+        ISNULL(RTRIM(vf.FaNombr), 'Cliente sin nombre') as NombreCliente,
+        vf.CliNroId as ClienteId,
+        SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturado,
+        COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as CantidadFacturas
+      FROM VEN_FACTUR vf
+      LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
+      WHERE MONTH(vf.FaFecha) = @mes 
+        AND YEAR(vf.FaFecha) = @anio
+        AND vf.CliNroId IS NOT NULL
+        AND ISNULL(RTRIM(vf.FaNombr), '') != ''
+      GROUP BY vf.CliNroId, vf.FaNombr
+      HAVING SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) > 0
+      ORDER BY SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) DESC
+    `
+
+    const clientesRankingResult = await pool.request()
+      .input('mes', currentMonth)
+      .input('anio', currentYear)
+      .query(clientesRankingQuery)
+
+    // Query para obtener productos vendidos por cada cliente del ranking
+    const productosClientesQuery = `
+      SELECT 
+        vf.CliNroId as ClienteId,
+        ISNULL(RTRIM(art.ArtDescr), ISNULL(RTRIM(vf1.DeArtDescr), 'Producto sin descripción')) as ProductoDescripcion,
+        ISNULL(RTRIM(art.ArtCodigo), '') as ProductoCodigo,
+        SUM(ISNULL(vf1.DeCanti, 0) * ISNULL(vc.CVeSigno, 1)) as CantidadTotal,
+        AVG(ISNULL(vf1.DePreUn, 0)) as PrecioUnitario,
+        AVG(ISNULL(vf1.DePorDes, 0)) as PorcentajeDescuento,
+        AVG(ISNULL(vf1.DePreUn, 0) * (1 - ISNULL(vf1.DePorDes, 0) / 100)) as PrecioUnitarioNetoConDescuento,
+        SUM(ISNULL(vf1.DeNetGr, 0) * ISNULL(vc.CVeSigno, 1)) as TotalNetoGravado
+      FROM VEN_FACTUR vf
+      INNER JOIN VEN_FACTUR1 vf1 ON vf.FaNroF1 = vf1.FaNroF1 AND vf.FaNroF2 = vf1.FaNroF2 AND vf1.FaTipFa = vf.FaTipFa AND vf.CVeNroId = vf1.CVeNroId
+      LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
+      LEFT JOIN ART_ARTICU art ON vf1.ArtNroId = art.ArtNroId
+      WHERE MONTH(vf.FaFecha) = @mes 
+        AND YEAR(vf.FaFecha) = @anio
+        AND vf.CliNroId IS NOT NULL
+        AND ISNULL(RTRIM(vf.FaNombr), '') != ''
+        AND vf.CliNroId IN (
+          SELECT TOP 15 vf2.CliNroId
+          FROM VEN_FACTUR vf2
+          LEFT JOIN VEN_CODVTA vc2 ON vf2.CVeNroId = vc2.CVeNroId
+          WHERE MONTH(vf2.FaFecha) = @mes 
+            AND YEAR(vf2.FaFecha) = @anio
+            AND vf2.CliNroId IS NOT NULL
+            AND ISNULL(RTRIM(vf2.FaNombr), '') != ''
+          GROUP BY vf2.CliNroId, vf2.FaNombr
+          HAVING SUM(ISNULL(vf2.FaTotal, 0) * ISNULL(vc2.CVeSigno, 1)) > 0
+          ORDER BY SUM(ISNULL(vf2.FaTotal, 0) * ISNULL(vc2.CVeSigno, 1)) DESC
+        )
+      GROUP BY vf.CliNroId, vf1.ArtNroId, art.ArtDescr, art.ArtCodigo, vf1.DeArtDescr
+      HAVING SUM(ISNULL(vf1.DeCanti, 0) * ISNULL(vc.CVeSigno, 1)) > 0
+      ORDER BY vf.CliNroId, SUM(ISNULL(vf1.DeNetGr, 0) * ISNULL(vc.CVeSigno, 1)) DESC
+    `
+
+    const productosClientesResult = await pool.request()
+      .input('mes', currentMonth)
+      .input('anio', currentYear)
+      .query(productosClientesQuery)
+
+    // Agrupar productos por cliente
+    const clientesConProductos = clientesRankingResult.recordset.map(cliente => ({
+      ...cliente,
+      productos: productosClientesResult.recordset.filter(producto => producto.ClienteId === cliente.ClienteId)
+    }))
+
     const estadisticas = {
       mes: currentMonth,
       anio: currentYear,
       resumenVentas: ventasResult.recordset[0] || {
         TotalVentas: 0,
         TotalFacturacion: 0,
+        TotalFacturacionNetoGravado: 0,
         PromedioVenta: 0
       },
       articulosMasVendidos: articulosResult.recordset || [],
-      ventasDiarias: ventasDiariasResult.recordset || []
+      ventasDiarias: ventasDiariasResult.recordset || [],
+      clientesRanking: clientesConProductos || []
     }
 
     console.log(`[ESTADISTICAS_VENTAS] ✅ Estadísticas obtenidas:`, {
       totalVentas: estadisticas.resumenVentas.TotalVentas,
       totalFacturacion: estadisticas.resumenVentas.TotalFacturacion,
-      articulosEncontrados: estadisticas.articulosMasVendidos.length
+      articulosEncontrados: estadisticas.articulosMasVendidos.length,
+      clientesEncontrados: estadisticas.clientesRanking.length
     })
 
     return NextResponse.json(estadisticas)

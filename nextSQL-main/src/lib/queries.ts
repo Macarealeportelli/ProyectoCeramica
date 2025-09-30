@@ -1,6 +1,5 @@
 import { getConnection } from './db'
 import { Cliente } from './types'
-import * as sql from 'mssql'
 
 // Interfaz para proveedores
 export interface ProveedorDB {

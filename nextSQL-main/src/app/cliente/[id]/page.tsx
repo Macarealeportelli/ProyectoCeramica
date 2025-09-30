@@ -48,6 +48,7 @@ import {
   Clear
 } from '@mui/icons-material'
 import TableLoader from '../../../components/TableLoader'
+import { formatCurrencyARS, formatQuantity } from '../../../lib/formatters'
 import EmptyState from '../../../components/EmptyState'
 import Header from '../../../components/Header'
 import SyndeoLoader from '../../../components/SyndeoLoader'
@@ -549,11 +550,11 @@ export default function ClientePage() {
                           {deuda.DeuFecha ? new Date(deuda.DeuFecha).toLocaleDateString('es-AR') : 'Sin fecha'}
                         </TableCell>
                         <TableCell align="right">
-                          ${(deuda.DeuImporte || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                          {formatCurrencyARS(deuda.DeuImporte || 0)}
                         </TableCell>
                         <TableCell align="right">
                           <Chip 
-                            label={`$${(deuda.DeuSaldo || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                            label={formatCurrencyARS(deuda.DeuSaldo || 0)}
                             color={deuda.DeuSaldo > 0 ? 'error' : 'success'}
                             size="small"
                           />
@@ -569,10 +570,9 @@ export default function ClientePage() {
                       </TableCell>
                       <TableCell align="right">
                         <Chip 
-                          label={`$${datosCliente.deuda
+                          label={formatCurrencyARS(datosCliente.deuda
                             .filter((deuda: any) => deuda.DeuSaldo !== 0)
-                            .reduce((total: number, deuda: any) => total + (deuda.DeuSaldo || 0), 0)
-                            .toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                            .reduce((total: number, deuda: any) => total + (deuda.DeuSaldo || 0), 0))}
                           color={datosCliente.deuda
                             .filter((deuda: any) => deuda.DeuSaldo !== 0)
                             .reduce((total: number, deuda: any) => total + (deuda.DeuSaldo || 0), 0) > 0 ? 'error' : 'success'}
@@ -638,7 +638,7 @@ export default function ClientePage() {
                         <TableCell align="right">
                           {movimiento.Debe ? (
                             <Chip 
-                              label={`$${movimiento.Debe.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                              label={formatCurrencyARS(movimiento.Debe)}
                               color="error" 
                               variant="outlined" 
                               size="small" 
@@ -650,7 +650,7 @@ export default function ClientePage() {
                         <TableCell align="right">
                           {movimiento.Haber ? (
                             <Chip 
-                              label={`$${movimiento.Haber.toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                              label={formatCurrencyARS(movimiento.Haber)}
                               color="success" 
                               variant="outlined" 
                               size="small" 
@@ -768,7 +768,7 @@ export default function ClientePage() {
                               <TableCell sx={{ p: 1, width: '100px' }}>{factura.FactTipo || factura.tipo || 'No especificado'}</TableCell>
                               <TableCell align="right" sx={{ p: 1, width: '120px' }}>
                                 <Chip 
-                                  label={`$${(factura.FactTotal || factura.total || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}`}
+                                  label={formatCurrencyARS(factura.FactTotal || factura.total || 0)}
                                   color="success" 
                                   size="small" 
                                 />
@@ -796,13 +796,13 @@ export default function ClientePage() {
                                       <strong>CUIT:</strong> {detallesFactura[facturaId]?.[0]?.FaCuit || 'N/A'}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                      <strong>Neto Gravado:</strong> ${((detallesFactura[facturaId]?.[0]?.DeNetGr || 0) - ((detallesFactura[facturaId]?.[0]?.DePorDes || 0) * (detallesFactura[facturaId]?.[0]?.DeNetGr || 0) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                      <strong>Neto Gravado:</strong> {formatCurrencyARS((detallesFactura[facturaId]?.[0]?.DeNetGr || 0) - ((detallesFactura[facturaId]?.[0]?.DePorDes || 0) * (detallesFactura[facturaId]?.[0]?.DeNetGr || 0) / 100))}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                      <strong>Total Factura:</strong> ${(detallesFactura[facturaId]?.[0]?.FaTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                      <strong>Total Factura:</strong> {formatCurrencyARS(detallesFactura[facturaId]?.[0]?.FaTotal || 0)}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                      <strong>Total Descuento:</strong> ${(detallesFactura[facturaId]?.[0]?.FaDesct || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                      <strong>Total Descuento:</strong> {formatCurrencyARS(detallesFactura[facturaId]?.[0]?.FaDesct || 0)}
                                     </Typography>
                                   </Box>
                                   
@@ -820,56 +820,62 @@ export default function ClientePage() {
                                         <Table size="small" sx={{ minWidth: 600 }}>
                                           <TableHead>
                                             <TableRow sx={{ bgcolor: 'grey.100' }}>
-                                              <TableCell sx={{ p: 1, width: '20%' }}><strong>Artículo</strong></TableCell>
-                                              <TableCell align="center" sx={{ p: 1, width: '10%' }}><strong>Código</strong></TableCell>
-                                              <TableCell align="center" sx={{ p: 1, width: '8%' }}><strong>Cantidad</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Precio Unit.</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '10%' }}><strong>IVA</strong></TableCell>
+                                              <TableCell sx={{ p: 1, width: '18%' }}><strong>Artículo</strong></TableCell>
+                                              <TableCell align="center" sx={{ p: 1, width: '8%' }}><strong>Código</strong></TableCell>
+                                              <TableCell align="center" sx={{ p: 1, width: '7%' }}><strong>Cantidad</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '10%' }}><strong>Precio Unit.</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '10%' }}><strong>Neto</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>IVA</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>Total</strong></TableCell>
-                                              <TableCell align="right" sx={{ p: 1, width: '8%' }}><strong>%Dto</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '7%' }}><strong>%Dto</strong></TableCell>
+                                              <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Precio Unit. Neto c/Dto</strong></TableCell>
                                               <TableCell align="right" sx={{ p: 1, width: '12%' }}><strong>Neto con dto</strong></TableCell>
                                             </TableRow>
                                           </TableHead>
                                           <TableBody>
                                             {detallesFactura[facturaId].map((detalle: any, index: number) => (
                                               <TableRow key={index} hover>
-                                                <TableCell sx={{ p: 1, width: '20%' }}>
+                                                <TableCell sx={{ p: 1, width: '18%' }}>
                                                   <Typography variant="body2" fontWeight="medium">
                                                     {detalle.DeArtDescr || 'Sin descripción'}
                                                   </Typography>
                                                 </TableCell>
-                                                <TableCell align="center" sx={{ p: 1, width: '10%' }}>
+                                                <TableCell align="center" sx={{ p: 1, width: '8%' }}>
                                                   {detalle.ArtCodigo || 'N/A'}
                                                 </TableCell>
-                                                <TableCell align="center" sx={{ p: 1, width: '8%' }}>
+                                                <TableCell align="center" sx={{ p: 1, width: '7%' }}>
                                                   <Chip 
-                                                    label={detalle.DeCanti || 0} 
+                                                    label={formatQuantity(detalle.DeCanti || 0)} 
                                                     color="info" 
                                                     variant="outlined" 
                                                     size="small" 
                                                   />
                                                 </TableCell>
-                                                <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                  ${(detalle.DePreUn || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                  ${(detalle.DeNetGr || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                <TableCell align="right" sx={{ p: 1, width: '10%' }}>
+                                                  {formatCurrencyARS(detalle.DePreUn || 0)}
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ p: 1, width: '10%' }}>
-                                                  ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                  {formatCurrencyARS(detalle.DeNetGr || 0)}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ p: 1, width: '8%' }}>
+                                                  {formatCurrencyARS(detalle.DeImIva || 0)}
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ p: 1, width: '8%' }}>
                                                   <Typography variant="body2" fontWeight="bold" color="success.main">
-                                                    ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                    {formatCurrencyARS(detalle.DeTotal || 0)}
                                                   </Typography>
                                                 </TableCell>
-                                                <TableCell align="right" sx={{ p: 1, width: '8%' }}>
+                                                <TableCell align="right" sx={{ p: 1, width: '7%' }}>
                                                   {detalle.DePorDes || 0}%
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ p: 1, width: '12%' }}>
+                                                  <Typography variant="body2" fontWeight="medium" color="primary.main">
+                                                    {formatCurrencyARS((detalle.NetoConDto || 0) / (detalle.DeCanti || 1))}
+                                                  </Typography>
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ p: 1, width: '12%' }}>
                                                   <Typography variant="body2" fontWeight="medium" color="success.main">
-                                                    ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                    {formatCurrencyARS(detalle.NetoConDto || 0)}
                                                   </Typography>
                                                 </TableCell>
                                               </TableRow>
@@ -919,13 +925,13 @@ export default function ClientePage() {
                                               <strong>Tipo IVA:</strong> {detallesFactura[facturaId]?.[0]?.FaTipIva || 'No especificado'}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                              <strong>Neto Gravado:</strong> <strong>${((detallesFactura[facturaId]?.[0]?.DeNetGr || 0) - ((detallesFactura[facturaId]?.[0]?.DePorDes || 0) * (detallesFactura[facturaId]?.[0]?.DeNetGr || 0) / 100)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                                              <strong>Neto Gravado:</strong> <strong>{formatCurrencyARS((detallesFactura[facturaId]?.[0]?.DeNetGr || 0) - ((detallesFactura[facturaId]?.[0]?.DePorDes || 0) * (detallesFactura[facturaId]?.[0]?.DeNetGr || 0) / 100))}</strong>
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                              <strong>Total Factura:</strong> <strong>${(detallesFactura[facturaId]?.[0]?.FaTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                                              <strong>Total Factura:</strong> <strong>{formatCurrencyARS(detallesFactura[facturaId]?.[0]?.FaTotal || 0)}</strong>
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                              <strong>Total Descuento:</strong> <strong>${(detallesFactura[facturaId]?.[0]?.FaDesct || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</strong>
+                              <strong>Total Descuento:</strong> <strong>{formatCurrencyARS(detallesFactura[facturaId]?.[0]?.FaDesct || 0)}</strong>
                             </Typography>
                                           </Grid>
                                         </Grid>
@@ -968,24 +974,24 @@ export default function ClientePage() {
                                                     </TableCell>
                                                     <TableCell align="center" sx={{ p: 1, width: '8%' }}>
                                                       <Chip 
-                                                        label={detalle.DeCanti || 0} 
+                                                        label={formatQuantity(detalle.DeCanti || 0)} 
                                                         color="info" 
                                                         variant="outlined" 
                                                         size="small" 
                                                       />
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                      ${(detalle.DePreUn || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                      {formatCurrencyARS(detalle.DePreUn || 0)}
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '12%' }}>
-                                                      ${(detalle.DeNetGr || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                      {formatCurrencyARS(detalle.DeNetGr || 0)}
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '10%' }}>
-                                                      ${(detalle.DeImIva || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                      {formatCurrencyARS(detalle.DeImIva || 0)}
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '8%' }}>
                                                       <Typography variant="body2" fontWeight="bold" color="success.main">
-                                                        ${(detalle.DeTotal || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                        {formatCurrencyARS(detalle.DeTotal || 0)}
                                                       </Typography>
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '8%' }}>
@@ -993,7 +999,7 @@ export default function ClientePage() {
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ p: 1, width: '12%' }}>
                                                       <Typography variant="body2" fontWeight="medium" color="success.main">
-                                                        ${(detalle.NetoConDto || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                                                        {formatCurrencyARS(detalle.NetoConDto || 0)}
                                                       </Typography>
                                                     </TableCell>
                                                   </TableRow>

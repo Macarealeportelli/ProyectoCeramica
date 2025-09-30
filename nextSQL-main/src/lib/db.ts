@@ -1,71 +1,101 @@
 import sql from 'mssql'
 
-// Configuraciones optimizadas (localhost primero para reducir latencia)
-const configs = [
-  // Configuración 1: Localhost (más rápido)
-  {
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '123456',
-    server: 'localhost',
-    port: parseInt(process.env.DB_PORT || '1435'),
-    database: process.env.DB_NAME || 'ceramica',
-    options: {
-      encrypt: false,
-      trustServerCertificate: true,
-      connectTimeout: 5000, // 5 segundos en lugar de 15
-      requestTimeout: 10000 // 10 segundos para consultas
+// Función para obtener configuración desde diferentes fuentes
+function getDbConfig() {
+  // Prioridad 1: Variables de entorno (configuradas por Electron)
+  if (process.env.DB_SERVER && process.env.DB_USER && process.env.DB_PASSWORD) {
+    const config = {
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      server: process.env.DB_SERVER,
+      port: parseInt(process.env.DB_PORT || '1433'),
+      database: process.env.DB_NAME || 'ceramica',
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        connectTimeout: 10000,
+        requestTimeout: 30000
+      }
     }
-  },
-  // Configuración 2: Localhost con instancia SQLEXPRESS
-  {
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '123456',
-    server: 'localhost',
-    port: parseInt(process.env.DB_PORT || '1435'),
-    database: process.env.DB_NAME || 'ceramica',
-    options: {
-      encrypt: false,
-      trustServerCertificate: true,
-      instanceName: 'SQLEXPRESS',
-      connectTimeout: 5000,
-      requestTimeout: 10000
+    
+    // Agregar instancia si está especificada
+    if (process.env.DB_INSTANCE) {
+      config.options = { ...config.options, instanceName: process.env.DB_INSTANCE }
     }
-  },
-  // Configuración 3: Servidor remoto con instancia (como fallback)
-  {
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '123456',
-    server: process.env.DB_SERVER || '10.0.0.10',
-    port: parseInt(process.env.DB_PORT || '1435'),
-    database: process.env.DB_NAME || 'ceramica',
-    options: {
-      encrypt: false,
-      trustServerCertificate: true,
-      instanceName: 'sql2008r2',
-      connectTimeout: 5000,
-      requestTimeout: 10000
-    }
-  },
-  // Configuración 4: Servidor remoto sin instancia
-  {
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '123456',
-    server: process.env.DB_SERVER || '10.0.0.10',
-    port: parseInt(process.env.DB_PORT || '1435'),
-    database: process.env.DB_NAME || 'ceramica',
-    options: {
-      encrypt: false,
-      trustServerCertificate: true,
-      connectTimeout: 5000,
-      requestTimeout: 10000
-    }
+    
+    return [config]
   }
-]
+  
+  // Prioridad 2: Configuraciones por defecto (fallback)
+  return [
+    // Configuración 1: Localhost (más rápido)
+    {
+      user: 'sa',
+      password: '123456',
+      server: 'localhost',
+      port: 1433,
+      database: 'ceramica',
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        connectTimeout: 5000,
+        requestTimeout: 10000
+      }
+    },
+    // Configuración 2: Localhost con instancia SQLEXPRESS
+    {
+      user: 'sa',
+      password: '123456',
+      server: 'localhost',
+      port: 1433,
+      database: 'ceramica',
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        instanceName: 'SQLEXPRESS',
+        connectTimeout: 5000,
+        requestTimeout: 10000
+      }
+    },
+    // Configuración 3: Servidor remoto con instancia
+    {
+      user: 'sa',
+      password: '123456',
+      server: '10.0.0.10',
+      port: 1435,
+      database: 'ceramica',
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        instanceName: 'sql2008r2',
+        connectTimeout: 5000,
+        requestTimeout: 10000
+      }
+    },
+    // Configuración 4: Servidor remoto sin instancia
+    {
+      user: 'sa',
+      password: '123456',
+      server: '10.0.0.10',
+      port: 1435,
+      database: 'ceramica',
+      options: {
+        encrypt: false,
+        trustServerCertificate: true,
+        connectTimeout: 5000,
+        requestTimeout: 10000
+      }
+    }
+  ]
+}
 
-let currentConfigIndex = 0
+// Obtener configuraciones dinámicamente
+const configs = getDbConfig()
+
 let pool: sql.ConnectionPool | null = null
 let isConnecting = false
 let connectionPromise: Promise<sql.ConnectionPool> | null = null
+let currentConfigIndex = 0
 
 export async function getConnection() {
   // Si ya tenemos una conexión activa, la devolvemos

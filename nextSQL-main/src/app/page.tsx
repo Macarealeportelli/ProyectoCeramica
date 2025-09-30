@@ -24,20 +24,29 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Collapse,
+  IconButton
 } from '@mui/material'
 import {
   TrendingUp,
   AttachMoney,
-  ShoppingCart,
   Inventory,
   People,
   Assessment,
   CalendarToday,
-  BarChart
+  BarChart,
+  Receipt,
+  ExpandMore,
+  ExpandLess
 } from '@mui/icons-material'
 import Header from '../components/Header'
+import InitialSetup from '../components/InitialSetup'
+import ConfigModal from '../components/ConfigModal'
 import { syndeoColors } from '../theme/colors'
+import { useConfig } from '../hooks/useConfig'
+import { DatabaseConfig } from '../lib/configStorage'
+import { formatCurrencyARS, formatQuantity } from '../lib/formatters'
 
 interface EstadisticasVentas {
   mes: number
@@ -45,6 +54,7 @@ interface EstadisticasVentas {
   resumenVentas: {
     TotalVentas: number
     TotalFacturacion: number
+    TotalFacturacionNetoGravado: number
     PromedioVenta: number
   }
   articulosMasVendidos: Array<{
@@ -52,11 +62,28 @@ interface EstadisticasVentas {
     Codigo: string
     CantidadVendida: number
     TotalVentas: number
+    TotalNetoGravadoConDescuento: number
+    PrecioUnitarioPonderado: number
   }>
   ventasDiarias: Array<{
     Dia: number
     CantidadVentas: number
     TotalDia: number
+  }>
+  clientesRanking: Array<{
+    NombreCliente: string
+    ClienteId: number
+    TotalFacturado: number
+    CantidadFacturas: number
+    productos: Array<{
+      ProductoDescripcion: string
+      ProductoCodigo: string
+      CantidadTotal: number
+      PrecioUnitario: number
+      PorcentajeDescuento: number
+      PrecioUnitarioNetoConDescuento: number
+      TotalNetoGravado: number
+    }>
   }>
 }
 
@@ -71,7 +98,10 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [mesSeleccionado, setMesSeleccionado] = useState<number>(new Date().getMonth() + 1)
-  const [anioSeleccionado, setAnioSeleccionado] = useState<number>(new Date().getFullYear())
+ const [anioSeleccionado, setAnioSeleccionado] = useState<number>(new Date().getFullYear())
+  const [configModalOpen, setConfigModalOpen] = useState(false)
+  const [clienteExpandido, setClienteExpandido] = useState<number | null>(null)
+  const { config, isConfigured, loading: configLoading, saveConfig } = useConfig()
 
   const cargarEstadisticas = async (mes: number, anio: number) => {
     try {
@@ -123,11 +153,72 @@ export default function HomePage() {
   }, [mesSeleccionado, anioSeleccionado])
 
   const handleMesChange = (event: SelectChangeEvent<number>) => {
-    setMesSeleccionado(event.target.value as number)
+    const nuevoMes = event.target.value as number
+    setMesSeleccionado(nuevoMes)
+    cargarEstadisticas(nuevoMes, anioSeleccionado)
   }
 
   const handleAnioChange = (event: SelectChangeEvent<number>) => {
-    setAnioSeleccionado(event.target.value as number)
+    const nuevoAnio = event.target.value as number
+    setAnioSeleccionado(nuevoAnio)
+    cargarEstadisticas(mesSeleccionado, nuevoAnio)
+  }
+
+  const handleConfigSave = async (newConfig: DatabaseConfig) => {
+    try {
+      await saveConfig(newConfig)
+      // Después de guardar la configuración, cargar las estadísticas
+      cargarEstadisticas(mesSeleccionado, anioSeleccionado)
+    } catch (error) {
+      console.error('Error al guardar la configuración:', error)
+    }
+  }
+
+  const handleConfigModalSave = async (newConfig: DatabaseConfig) => {
+    try {
+      await saveConfig(newConfig)
+      setConfigModalOpen(false)
+      // Recargar las estadísticas con la nueva configuración
+      cargarEstadisticas(mesSeleccionado, anioSeleccionado)
+    } catch (error) {
+      console.error('Error al guardar la configuración:', error)
+    }
+  }
+
+  const toggleClienteExpansion = (clienteId: number) => {
+    if (clienteExpandido === clienteId) {
+      // Si el cliente ya está expandido, lo contraemos
+      setClienteExpandido(null)
+    } else {
+      // Si es un cliente diferente o ninguno está expandido, expandimos este
+      setClienteExpandido(clienteId)
+    }
+  }
+
+  const navegarACliente = (clienteId: number) => {
+    router.push(`/cliente/${clienteId}`)
+  }
+
+  const handleOpenConfigModal = () => {
+    setConfigModalOpen(true)
+  }
+
+  const handleCloseConfigModal = () => {
+    setConfigModalOpen(false)
+  }
+
+  // Si está cargando la configuración, mostrar loading
+  if (configLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  // Si no hay configuración, mostrar el setup inicial
+  if (!isConfigured) {
+    return <InitialSetup onConfigSaved={handleConfigSave} />
   }
 
   if (loading) {
@@ -153,7 +244,11 @@ export default function HomePage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.100' }}>
-      <Header title="Dashboard de Ventas" />
+      <Header 
+        title="Dashboard de Ventas" 
+        showConfigButton={true}
+        onConfigClick={handleOpenConfigModal}
+      />
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
@@ -222,7 +317,7 @@ export default function HomePage() {
         {estadisticas && (
           <Grid container spacing={3}>
             {/* Tarjetas de resumen */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                   <CardContent sx={{ textAlign: 'center', py: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
@@ -232,7 +327,7 @@ export default function HomePage() {
                       </Typography>
                     </Box>
                     <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      {estadisticas.resumenVentas.TotalVentas?.toLocaleString() || '0'}
+                      {formatQuantity(estadisticas.resumenVentas.TotalVentas)}
                     </Typography>
                     <Typography variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
                       Facturas emitidas este mes
@@ -250,7 +345,7 @@ export default function HomePage() {
                 </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
                   <CardContent sx={{ textAlign: 'center', py: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
@@ -260,7 +355,7 @@ export default function HomePage() {
                       </Typography>
                     </Box>
                     <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      ${estadisticas.resumenVentas.TotalFacturacion ? Number(estadisticas.resumenVentas.TotalFacturacion).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                      {formatCurrencyARS(estadisticas.resumenVentas.TotalFacturacion)}
                     </Typography>
                     <Typography variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
                       Ingresos totales del mes
@@ -278,7 +373,35 @@ export default function HomePage() {
                 </Card>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
+              <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
+                  <CardContent sx={{ textAlign: 'center', py: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                      <Receipt sx={{ fontSize: 24, mr: 1, opacity: 0.9 }} />
+                      <Typography variant="h6" sx={{ fontWeight: 'medium' }}>
+                        Facturación Neto Gravado
+                      </Typography>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      {formatCurrencyARS(estadisticas.resumenVentas.TotalFacturacionNetoGravado)}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
+                      Total neto gravado mensual
+                    </Typography>
+                    <Chip 
+                      label="Pesos" 
+                      size="small" 
+                      sx={{ 
+                        backgroundColor: 'rgba(255,255,255,0.2)', 
+                        color: 'white',
+                        fontWeight: 'medium'
+                      }} 
+                    />
+                  </CardContent>
+                </Card>
+            </Grid>
+
+            <Grid item xs={12} md={3}>
               <Card sx={{ height: '100%', background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
                   <CardContent sx={{ textAlign: 'center', py: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
@@ -288,7 +411,7 @@ export default function HomePage() {
                       </Typography>
                     </Box>
                     <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      ${estadisticas.resumenVentas.PromedioVenta ? Number(estadisticas.resumenVentas.PromedioVenta).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                      {formatCurrencyARS(estadisticas.resumenVentas.PromedioVenta)}
                     </Typography>
                     <Typography variant="body2" sx={{ opacity: 0.8, mb: 1 }}>
                       Valor promedio por factura
@@ -322,8 +445,10 @@ export default function HomePage() {
                             <TableCell><strong>Posición</strong></TableCell>
                             <TableCell><strong>Código</strong></TableCell>
                             <TableCell><strong>Descripción</strong></TableCell>
+                            <TableCell align="right"><strong>Precio Unitario</strong></TableCell>
                             <TableCell align="right"><strong>Cantidad Vendida</strong></TableCell>
                             <TableCell align="right"><strong>Total Ventas</strong></TableCell>
+                            <TableCell align="right"><strong>Neto Gravado c/Dto</strong></TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -340,7 +465,15 @@ export default function HomePage() {
                               <TableCell>{articulo.Descripcion || 'Sin descripción'}</TableCell>
                               <TableCell align="right">
                                 <Chip 
-                                  label={articulo.CantidadVendida?.toLocaleString() || '0'}
+                                  label={formatCurrencyARS(articulo.PrecioUnitarioPonderado)}
+                                  color="primary"
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip 
+                                  label={formatQuantity(articulo.CantidadVendida)}
                                   color="info"
                                   variant="outlined"
                                   size="small"
@@ -348,8 +481,15 @@ export default function HomePage() {
                               </TableCell>
                               <TableCell align="right">
                                 <Chip 
-                                  label={`$${articulo.TotalVentas?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) || '0.00'}`}
+                                  label={formatCurrencyARS(articulo.TotalVentas)}
                                   color="success"
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell align="right">
+                                <Chip 
+                                  label={formatCurrencyARS(articulo.TotalNetoGravadoConDescuento)}
+                                  color="warning"
                                   size="small"
                                 />
                               </TableCell>
@@ -366,9 +506,181 @@ export default function HomePage() {
                 </CardContent>
               </Card>
             </Grid>
+
+            {/* Ranking de clientes por facturación */}
+            <Grid item xs={12}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom sx={{ color: syndeoColors.primary.main, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <People sx={{ mr: 1 }} />
+                    Top 15 Clientes por Facturación del Mes
+                  </Typography>
+                  {estadisticas.clientesRanking && estadisticas.clientesRanking.length > 0 ? (
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: 'grey.100' }}>
+                            <TableCell><strong>Posición</strong></TableCell>
+                            <TableCell><strong>Cliente</strong></TableCell>
+                            <TableCell align="right"><strong>Total Facturado</strong></TableCell>
+                            <TableCell align="right"><strong>Cantidad Facturas</strong></TableCell>
+                            <TableCell align="center"><strong>Productos</strong></TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {estadisticas.clientesRanking.map((cliente, index) => (
+                            <React.Fragment key={cliente.ClienteId || index}>
+                              <TableRow 
+                                onClick={() => navegarACliente(cliente.ClienteId)}
+                                sx={{ 
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                                  }
+                                }}
+                              >
+                                <TableCell>
+                                  <Chip 
+                                    label={`#${index + 1}`} 
+                                    color={index === 0 ? 'primary' : index === 1 ? 'secondary' : index === 2 ? 'warning' : 'default'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>{cliente.NombreCliente || 'Cliente sin nombre'}</TableCell>
+                                <TableCell align="right">
+                                  <Chip 
+                                    label={formatCurrencyARS(cliente.TotalFacturado)}
+                                    color="success"
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Chip 
+                                    label={formatQuantity(cliente.CantidadFacturas)}
+                                    color="info"
+                                    variant="outlined"
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
+                                  <IconButton
+                                     onClick={(e) => {
+                                       e.stopPropagation() // Evitar que se active la navegación al cliente
+                                       toggleClienteExpansion(cliente.ClienteId)
+                                     }}
+                                     size="small"
+                                     color="primary"
+                                   >
+                                     {clienteExpandido === cliente.ClienteId ? <ExpandLess /> : <ExpandMore />}
+                                   </IconButton>
+                                  <Chip 
+                                    label={`${cliente.productos?.length || 0} productos`}
+                                    color="default"
+                                    size="small"
+                                    sx={{ ml: 1 }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                              <TableRow>
+                                <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={5}>
+                                  <Collapse in={clienteExpandido === cliente.ClienteId} timeout="auto" unmountOnExit>
+                                    <Box sx={{ margin: 1 }}>
+                                      <Typography variant="h6" gutterBottom component="div" sx={{ color: syndeoColors.primary.main }}>
+                                        Productos vendidos a {cliente.NombreCliente}
+                                      </Typography>
+                                      {cliente.productos && cliente.productos.length > 0 ? (
+                                        <Table size="small" aria-label="productos">
+                                          <TableHead>
+                                            <TableRow sx={{ bgcolor: 'grey.50' }}>
+                                              <TableCell><strong>Código</strong></TableCell>
+                                              <TableCell><strong>Descripción</strong></TableCell>
+                                              <TableCell align="right"><strong>Cantidad</strong></TableCell>
+                                              <TableCell align="right"><strong>Precio Unit.</strong></TableCell>
+                                              <TableCell align="right"><strong>% Desc.</strong></TableCell>
+                                              <TableCell align="right"><strong>Precio Neto</strong></TableCell>
+                                              <TableCell align="right"><strong>Total Neto</strong></TableCell>
+                                            </TableRow>
+                                          </TableHead>
+                                          <TableBody>
+                                            {cliente.productos.map((producto, prodIndex) => (
+                                              <TableRow key={`${cliente.ClienteId}-${producto.ProductoCodigo}-${prodIndex}`}>
+                                                <TableCell component="th" scope="row">
+                                                  <Chip 
+                                                    label={producto.ProductoCodigo}
+                                                    color="default"
+                                                    size="small"
+                                                    variant="outlined"
+                                                  />
+                                                </TableCell>
+                                                <TableCell>{producto.ProductoDescripcion}</TableCell>
+                                                <TableCell align="right">
+                                                  <Chip 
+                                                    label={formatQuantity(producto.CantidadTotal || 0)}
+                                                    color="info"
+                                                    size="small"
+                                                  />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                  {formatCurrencyARS(producto.PrecioUnitario || 0)}
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                  <Chip 
+                                                    label={`${producto.PorcentajeDescuento?.toFixed(1) || '0.0'}%`}
+                                                    color="warning"
+                                                    size="small"
+                                                    variant="outlined"
+                                                  />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                  <Chip 
+                                                    label={formatCurrencyARS(producto.PrecioUnitarioNetoConDescuento || 0)}
+                                                    color="success"
+                                                    size="small"
+                                                  />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                  <Chip 
+                                                    label={formatCurrencyARS(producto.TotalNetoGravado || 0)}
+                                                    color="success"
+                                                    size="small"
+                                                  />
+                                                </TableCell>
+                                              </TableRow>
+                                            ))}
+                                          </TableBody>
+                                        </Table>
+                                      ) : (
+                                        <Alert severity="info" sx={{ mt: 1 }}>
+                                          No hay productos registrados para este cliente.
+                                        </Alert>
+                                      )}
+                                    </Box>
+                                  </Collapse>
+                                </TableCell>
+                              </TableRow>
+                            </React.Fragment>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">
+                      No hay datos de clientes para este mes.
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )}
       </Container>
+      
+      {/* Modal de configuración */}
+      <ConfigModal
+        open={configModalOpen}
+        onClose={handleCloseConfigModal}
+        onConfigSave={handleConfigModalSave}
+      />
     </Box>
   )
 }
