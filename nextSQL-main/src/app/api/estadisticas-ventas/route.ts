@@ -103,28 +103,71 @@ export async function GET(request: NextRequest) {
       .input('anio', currentYear)
       .query(ventasDiariasQuery)
 
-    // Query para obtener ranking de clientes por facturación mensual con detalle de productos
-    const clientesRankingQuery = `
-      SELECT TOP 15
-        ISNULL(RTRIM(vf.FaNombr), 'Cliente sin nombre') as NombreCliente,
-        vf.CliNroId as ClienteId,
-        SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturado,
-        COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as CantidadFacturas
+    // Query de diagnóstico para SUPERMAT
+    const diagnosticoSupermat = `
+      SELECT 
+        vf.CliNroId,
+        vf.FaNombr as NombreOriginal,
+        UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, 'Cliente sin nombre')))) as NombreNormalizado,
+        vf.FaTotal,
+        vc.CVeSigno,
+        vf.FaFecha,
+        COUNT(*) OVER (PARTITION BY vf.CliNroId) as RegistrosPorCliente
       FROM VEN_FACTUR vf
       LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
       WHERE MONTH(vf.FaFecha) = @mes 
         AND YEAR(vf.FaFecha) = @anio
-        AND vf.CliNroId IS NOT NULL
-        AND ISNULL(RTRIM(vf.FaNombr), '') != ''
-      GROUP BY vf.CliNroId, vf.FaNombr
-      HAVING SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) > 0
-      ORDER BY SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) DESC
+        AND UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, '')))) LIKE '%SUPERMAT%'
+      ORDER BY vf.CliNroId, vf.FaFecha
+    `
+
+    // Query para obtener ranking de clientes por facturación mensual con detalle de productos
+    const clientesRankingQuery = `
+      WITH ClientesConFacturacion AS (
+        SELECT 
+          vf.CliNroId,
+          SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturado,
+          COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as CantidadFacturas,
+          MAX(UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, 'Cliente sin nombre'))))) as NombreCliente
+        FROM VEN_FACTUR vf
+        LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
+        WHERE MONTH(vf.FaFecha) = @mes 
+          AND YEAR(vf.FaFecha) = @anio
+          AND vf.CliNroId IS NOT NULL
+          AND ISNULL(LTRIM(RTRIM(vf.FaNombr)), '') != ''
+        GROUP BY vf.CliNroId
+        HAVING SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) > 0
+      ),
+      ClientesConsolidados AS (
+        SELECT 
+          NombreCliente,
+          SUM(TotalFacturado) as TotalFacturado,
+          SUM(CantidadFacturas) as CantidadFacturas,
+          MIN(CliNroId) as ClienteId -- Usar el ID más pequeño como representativo
+        FROM ClientesConFacturacion
+        GROUP BY NombreCliente
+      )
+      SELECT TOP 15
+        NombreCliente,
+        ClienteId,
+        TotalFacturado,
+        CantidadFacturas
+      FROM ClientesConsolidados
+      ORDER BY TotalFacturado DESC
     `
 
     const clientesRankingResult = await pool.request()
       .input('mes', currentMonth)
       .input('anio', currentYear)
       .query(clientesRankingQuery)
+
+    // Ejecutar diagnóstico de SUPERMAT para debugging
+    const diagnosticoResult = await pool.request()
+      .input('mes', currentMonth)
+      .input('anio', currentYear)
+      .query(diagnosticoSupermat)
+
+    console.log('[DIAGNOSTICO_SUPERMAT] Datos encontrados:', diagnosticoResult.recordset)
 
     // Query para obtener productos vendidos por cada cliente del ranking
     const productosClientesQuery = `
@@ -153,11 +196,14 @@ export async function GET(request: NextRequest) {
             AND YEAR(vf2.FaFecha) = @anio
             AND vf2.CliNroId IS NOT NULL
             AND ISNULL(RTRIM(vf2.FaNombr), '') != ''
-          GROUP BY vf2.CliNroId, vf2.FaNombr
+          GROUP BY vf2.CliNroId
           HAVING SUM(ISNULL(vf2.FaTotal, 0) * ISNULL(vc2.CVeSigno, 1)) > 0
           ORDER BY SUM(ISNULL(vf2.FaTotal, 0) * ISNULL(vc2.CVeSigno, 1)) DESC
         )
-      GROUP BY vf.CliNroId, vf1.ArtNroId, art.ArtDescr, art.ArtCodigo, vf1.DeArtDescr
+      GROUP BY vf.CliNroId, 
+               ISNULL(vf1.ArtNroId, 0),
+               ISNULL(RTRIM(art.ArtDescr), ISNULL(RTRIM(vf1.DeArtDescr), 'Producto sin descripción')),
+               ISNULL(RTRIM(art.ArtCodigo), '')
       HAVING SUM(ISNULL(vf1.DeCanti, 0) * ISNULL(vc.CVeSigno, 1)) > 0
       ORDER BY vf.CliNroId, SUM(ISNULL(vf1.DeNetGr, 0) * ISNULL(vc.CVeSigno, 1)) DESC
     `

@@ -447,7 +447,7 @@ export default function HomePage() {
                             <TableCell><strong>Descripción</strong></TableCell>
                             <TableCell align="right"><strong>Precio Unitario</strong></TableCell>
                             <TableCell align="right"><strong>Cantidad Vendida</strong></TableCell>
-                            <TableCell align="right"><strong>Total Ventas</strong></TableCell>
+                            <TableCell align="right"><strong>Precio Unitario NG c/Descto Ponderado</strong></TableCell>
                             <TableCell align="right"><strong>Neto Gravado c/Dto</strong></TableCell>
                           </TableRow>
                         </TableHead>
@@ -481,7 +481,7 @@ export default function HomePage() {
                               </TableCell>
                               <TableCell align="right">
                                 <Chip 
-                                  label={formatCurrencyARS(articulo.TotalVentas)}
+                                  label={formatCurrencyARS(articulo.TotalNetoGravadoConDescuento / articulo.CantidadVendida)}
                                   color="success"
                                   size="small"
                                 />
