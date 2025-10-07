@@ -34,6 +34,36 @@ export async function GET(request: NextRequest) {
     
     console.log(`[ESTADISTICAS_VENTAS] Consultando datos para ${currentMonth}/${currentYear}`)
 
+    // Verificar existencia de tablas requeridas para evitar errores cuando el esquema no está disponible
+    const requiredTables = ['VEN_FACTUR', 'VEN_FACTUR1', 'VEN_CODVTA', 'ART_ARTICU']
+    const tablesQuery = `
+      SELECT UPPER(TABLE_NAME) AS TABLE_NAME
+      FROM INFORMATION_SCHEMA.TABLES
+      WHERE UPPER(TABLE_NAME) IN (${requiredTables.map(t => `'${t.toUpperCase()}'`).join(', ')})
+    `
+    const tablesRes = await pool.request().query(tablesQuery)
+    const existingTables: string[] = tablesRes.recordset.map((r: any) => r.TABLE_NAME)
+    const missingTables = requiredTables.filter(t => !existingTables.includes(t))
+
+    if (missingTables.length > 0) {
+      console.warn('[ESTADISTICAS_VENTAS] ⚠️ Faltan tablas requeridas:', missingTables)
+      const estadisticasFallback = {
+        mes: currentMonth,
+        anio: currentYear,
+        resumenVentas: {
+          TotalVentas: 0,
+          TotalFacturacion: 0,
+          TotalFacturacionNetoGravado: 0,
+          PromedioVenta: 0
+        },
+        articulosMasVendidos: [],
+        ventasDiarias: [],
+        clientesRanking: [],
+        diagnostico: { missingTables }
+      }
+      return NextResponse.json(estadisticasFallback)
+    }
+
     // Query para obtener total de ventas mensuales (incluyendo notas de crédito como valores negativos)
     const ventasQuery = `
       SELECT 
@@ -108,7 +138,7 @@ export async function GET(request: NextRequest) {
       SELECT 
         vf.CliNroId,
         vf.FaNombr as NombreOriginal,
-        UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, 'Cliente sin nombre')))) as NombreNormalizado,
+        UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, '')))) as NombreNormalizado,
         vf.FaTotal,
         vc.CVeSigno,
         vf.FaFecha,
@@ -128,7 +158,7 @@ export async function GET(request: NextRequest) {
           vf.CliNroId,
           SUM(ISNULL(vf.FaTotal, 0) * ISNULL(vc.CVeSigno, 1)) as TotalFacturado,
           COUNT(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN 1 END) as CantidadFacturas,
-          MAX(UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, 'Cliente sin nombre'))))) as NombreCliente
+        MAX(UPPER(LTRIM(RTRIM(ISNULL(vf.FaNombr, ''))))) as NombreCliente
         FROM VEN_FACTUR vf
         LEFT JOIN VEN_CODVTA vc ON vf.CVeNroId = vc.CVeNroId
         WHERE MONTH(vf.FaFecha) = @mes 
@@ -175,7 +205,7 @@ export async function GET(request: NextRequest) {
         vf.CliNroId as ClienteId,
         ISNULL(RTRIM(art.ArtDescr), ISNULL(RTRIM(vf1.DeArtDescr), 'Producto sin descripción')) as ProductoDescripcion,
         ISNULL(RTRIM(art.ArtCodigo), '') as ProductoCodigo,
-        SUM(ISNULL(vf1.DeCanti, 0) * ISNULL(vc.CVeSigno, 1)) as CantidadTotal,
+        SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END) as CantidadTotal,
         AVG(ISNULL(vf1.DePreUn, 0)) as PrecioUnitario,
         AVG(ISNULL(vf1.DePorDes, 0)) as PorcentajeDescuento,
         AVG(ISNULL(vf1.DePreUn, 0) * (1 - ISNULL(vf1.DePorDes, 0) / 100)) as PrecioUnitarioNetoConDescuento,
@@ -204,7 +234,7 @@ export async function GET(request: NextRequest) {
                ISNULL(vf1.ArtNroId, 0),
                ISNULL(RTRIM(art.ArtDescr), ISNULL(RTRIM(vf1.DeArtDescr), 'Producto sin descripción')),
                ISNULL(RTRIM(art.ArtCodigo), '')
-      HAVING SUM(ISNULL(vf1.DeCanti, 0) * ISNULL(vc.CVeSigno, 1)) > 0
+      HAVING SUM(CASE WHEN ISNULL(vc.CVeSigno, 1) > 0 THEN ISNULL(vf1.DeCanti, 0) ELSE 0 END) > 0
       ORDER BY vf.CliNroId, SUM(ISNULL(vf1.DeNetGr, 0) * ISNULL(vc.CVeSigno, 1)) DESC
     `
 

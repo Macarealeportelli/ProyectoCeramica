@@ -1,92 +1,38 @@
 import sql from 'mssql'
 
-// Función para obtener configuración desde diferentes fuentes
+// Obtener configuración EXCLUSIVAMENTE desde variables de entorno
 function getDbConfig() {
-  // Prioridad 1: Variables de entorno (configuradas por Electron)
-  if (process.env.DB_SERVER && process.env.DB_USER && process.env.DB_PASSWORD) {
-    const config = {
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      server: process.env.DB_SERVER,
-      port: parseInt(process.env.DB_PORT || '1433'),
-      database: process.env.DB_NAME || 'ceramica',
-      options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        connectTimeout: 10000,
-        requestTimeout: 30000
-      }
-    }
-    
-    // Agregar instancia si está especificada
-    if (process.env.DB_INSTANCE) {
-      config.options = { ...config.options, instanceName: process.env.DB_INSTANCE }
-    }
-    
-    return [config]
+  const server = process.env.DB_SERVER
+  const user = process.env.DB_USER
+  const password = process.env.DB_PASSWORD
+  const database = process.env.DB_DATABASE
+  const port = parseInt(process.env.DB_PORT || '1433')
+  const instance = process.env.DB_INSTANCE
+
+  if (!server || !user || !password || !database) {
+    throw new Error('[DB] Faltan variables de entorno: defina DB_SERVER, DB_USER, DB_PASSWORD, DB_DATABASE y opcionalmente DB_PORT, DB_INSTANCE')
   }
-  
-  // Prioridad 2: Configuraciones por defecto (fallback)
-  return [
-    // Configuración 1: Localhost (más rápido)
-    {
-      user: 'sa',
-      password: '123456',
-      server: 'localhost',
-      port: 1433,
-      database: 'ceramica',
-      options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        connectTimeout: 5000,
-        requestTimeout: 10000
-      }
-    },
-    // Configuración 2: Localhost con instancia SQLEXPRESS
-    {
-      user: 'sa',
-      password: '123456',
-      server: 'localhost',
-      port: 1433,
-      database: 'ceramica',
-      options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        instanceName: 'SQLEXPRESS',
-        connectTimeout: 5000,
-        requestTimeout: 10000
-      }
-    },
-    // Configuración 3: Servidor remoto con instancia
-    {
-      user: 'sa',
-      password: '123456',
-      server: '10.0.0.10',
-      port: 1435,
-      database: 'ceramica',
-      options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        instanceName: 'sql2008r2',
-        connectTimeout: 5000,
-        requestTimeout: 10000
-      }
-    },
-    // Configuración 4: Servidor remoto sin instancia
-    {
-      user: 'sa',
-      password: '123456',
-      server: '10.0.0.10',
-      port: 1435,
-      database: 'ceramica',
-      options: {
-        encrypt: false,
-        trustServerCertificate: true,
-        connectTimeout: 5000,
-        requestTimeout: 10000
-      }
+
+  const config: sql.config = {
+    user,
+    password,
+    server,
+    port,
+    database,
+    options: {
+      encrypt: false,
+      trustServerCertificate: true,
+      connectTimeout: 15000,
+      requestTimeout: 60000
     }
-  ]
+  }
+
+  if (instance && instance.trim()) {
+    config.options = { ...config.options, instanceName: instance.trim() }
+  }
+
+  // Devolver como arreglo para mantener la lógica existente
+  return [config]
 }
 
 // Obtener configuraciones dinámicamente
@@ -122,20 +68,15 @@ export async function getConnection() {
 }
 
 async function connectToDatabase(): Promise<sql.ConnectionPool> {
-  // Probar cada configuración hasta encontrar una que funcione
+  // Única configuración: variables de entorno
   for (let i = 0; i < configs.length; i++) {
     const config = configs[i]
-    const configName = [
-      'Localhost sin instancia',
-      'Localhost con SQLEXPRESS',
-      'Servidor remoto con instancia sql2008r2',
-      'Servidor remoto sin instancia'
-    ][i]
+    const configName = 'Variables de entorno'
 
     try {
       console.log(`[DB] 🔄 Probando configuración ${i + 1}: ${configName}`)
       console.log(`[DB] 📡 Conectando a: ${config.server}${config.options?.instanceName ? '\\' + config.options.instanceName : ''}:${config.port}`)
-      
+
       const newPool = await sql.connect(config)
       console.log(`[DB] ✅ Conexión exitosa con configuración ${i + 1}: ${configName}`)
       currentConfigIndex = i
@@ -143,7 +84,7 @@ async function connectToDatabase(): Promise<sql.ConnectionPool> {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       console.log(`[DB] ❌ Configuración ${i + 1} falló: ${errorMessage}`)
-      
+
       // Si es el último intento, lanzar el error
       if (i === configs.length - 1) {
         console.error('[DB] ❌ Todas las configuraciones fallaron')
@@ -151,6 +92,6 @@ async function connectToDatabase(): Promise<sql.ConnectionPool> {
       }
     }
   }
-  
+
   throw new Error('No se pudo establecer conexión con ninguna configuración')
 }

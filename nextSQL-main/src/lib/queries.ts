@@ -127,21 +127,21 @@ export async function getEntidades(): Promise<Cliente[]> {
     const result = await pool.request().query(`
       SELECT TOP 100 
         CAST(Entnroid as INT) as id,
-        ISNULL(CAST(Entnombr as NVARCHAR(100)), 'Sin nombre') as nombre,
-        ISNULL(CAST(Entemail as NVARCHAR(100)), 'Sin email') as email,
-        ISNULL(CAST(EntRazSoc as NVARCHAR(100)), 'Sin razón social') as razon_social,
-        ISNULL(CAST(EntDomic as NVARCHAR(100)), 'Sin domicilio') as domicilio,
-        ISNULL(CAST(EntLocal as NVARCHAR(100)), 'Sin localidad') as localidad,
-        ISNULL(CAST(EntProvi as NVARCHAR(100)), 'Sin provincia') as provincia,
-        ISNULL(CAST(EntCodPo as NVARCHAR(100)), 'Sin código postal') as codigo_postal,
-        ISNULL(CAST(EntTelef as NVARCHAR(100)), 'Sin teléfono') as telefono,
-        ISNULL(CAST(EntCUIT as NVARCHAR(100)), 'Sin CUIT') as EntCUIT,
-        ISNULL(CAST(EntActEc as NVARCHAR(100)), 'Sin actividad económica') as EntActEc,
-        ISNULL(RTRIM(EntUsLog), 'Sin usuario log') as EntUsLog,
-        ISNULL(CONVERT(NVARCHAR(100), EntFeLog, 120), 'Sin fecha log') as EntFeLog,
-        ISNULL(CAST(EntSedronar as NVARCHAR(100)), 'Sin sedronar') as EntSedronar,
-        ISNULL(RTRIM(EntTelef2), 'Sin teléfono 2') as EntTelef2,
-        ISNULL(CAST(EntCodigo as NVARCHAR(100)), 'Sin código') as EntCodigo
+        CAST(Entnombr as NVARCHAR(100)) as nombre,
+        CAST(Entemail as NVARCHAR(100)) as email,
+        CAST(EntRazSoc as NVARCHAR(100)) as razon_social,
+        CAST(EntDomic as NVARCHAR(100)) as domicilio,
+        CAST(EntLocal as NVARCHAR(100)) as localidad,
+        CAST(EntProvi as NVARCHAR(100)) as provincia,
+        CAST(EntCodPo as NVARCHAR(100)) as codigo_postal,
+        CAST(EntTelef as NVARCHAR(100)) as telefono,
+        CAST(EntCUIT as NVARCHAR(100)) as EntCUIT,
+        CAST(EntActEc as NVARCHAR(100)) as EntActEc,
+        RTRIM(EntUsLog) as EntUsLog,
+        CONVERT(NVARCHAR(100), EntFeLog, 120) as EntFeLog,
+        RTRIM(EntSedronar) as EntSedronar,
+        RTRIM(EntTelef2) as EntTelef2,
+        CAST(EntCodigo as NVARCHAR(100)) as EntCodigo
       FROM Ent_maeentidad
       ORDER BY Entnroid
     `)
@@ -391,16 +391,16 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
         .query(`
           SELECT TOP 1
             Entnroid,
-            ISNULL(CAST(Entnombr as NVARCHAR(100)), '') as Entnombr,
-            ISNULL(CAST(Entemail as NVARCHAR(100)), '') as Entemail,
-            ISNULL(CAST(EntRazSoc as NVARCHAR(100)), '') as EntRazSoc,
-            ISNULL(CAST(EntDomic as NVARCHAR(100)), '') as EntDomic,
-            ISNULL(CAST(EntLocal as NVARCHAR(100)), '') as EntLocal,
-            ISNULL(CAST(EntProvi as NVARCHAR(100)), '') as EntProvi,
-            ISNULL(CAST(EntCodPo as NVARCHAR(100)), '') as EntCodPo,
-            ISNULL(CAST(EntTelef as NVARCHAR(100)), '') as EntTelef,
-            ISNULL(CAST(EntCUIT as NVARCHAR(100)), '') as EntCUIT,
-            ISNULL(CAST(EntActEc as NVARCHAR(100)), '') as EntActEc
+            CAST(Entnombr as NVARCHAR(100)) as Entnombr,
+            CAST(Entemail as NVARCHAR(100)) as Entemail,
+            CAST(EntRazSoc as NVARCHAR(100)) as EntRazSoc,
+            CAST(EntDomic as NVARCHAR(100)) as EntDomic,
+            CAST(EntLocal as NVARCHAR(100)) as EntLocal,
+            CAST(EntProvi as NVARCHAR(100)) as EntProvi,
+            CAST(EntCodPo as NVARCHAR(100)) as EntCodPo,
+            CAST(EntTelef as NVARCHAR(100)) as EntTelef,
+            CAST(EntCUIT as NVARCHAR(100)) as EntCUIT,
+            CAST(EntActEc as NVARCHAR(100)) as EntActEc
           FROM ENT_MAEENTIDAD 
           WHERE Entnroid = @id
         `)
@@ -421,10 +421,10 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
         .query(`
           SELECT TOP 1
             CliNroId,
-            ISNULL(CAST(CliConta as NVARCHAR(100)), '') as CliConta,
-            ISNULL(CAST(CliNotas as NVARCHAR(500)), '') as CliNotas,
-            ISNULL(CAST(CliEstad as NVARCHAR(100)), '') as CliEstad,
-            ISNULL(CAST(CliCodigo as NVARCHAR(50)), '') as CliCodigo
+            CAST(CliConta as NVARCHAR(100)) as CliConta,
+            CAST(CliNotas as NVARCHAR(500)) as CliNotas,
+            CAST(CliEstad as NVARCHAR(100)) as CliEstad,
+            CAST(CliCodigo as NVARCHAR(50)) as CliCodigo
           FROM CLIE_MAECLIENTES 
           WHERE CliNroId = @id
         `)
@@ -445,10 +445,10 @@ export async function getDatosRelacionados(entidadId: number): Promise<DatosRela
         .query(`
           SELECT TOP 1
             ProNroId,
-            ISNULL(CAST(ProContac as NVARCHAR(100)), '') as ProContac,
-            ISNULL(CAST(ProObser as NVARCHAR(500)), '') as ProObser,
-            ISNULL(CAST(ProEstad as NVARCHAR(100)), '') as ProEstad,
-            ISNULL(CAST(ProRubCon as NVARCHAR(100)), '') as ProRubCon
+            CAST(ProContac as NVARCHAR(100)) as ProContac,
+            CAST(ProObser as NVARCHAR(500)) as ProObser,
+            CAST(ProEstad as NVARCHAR(100)) as ProEstad,
+            CAST(ProRubCon as NVARCHAR(100)) as ProRubCon
           FROM PROV_MAEPROV 
           WHERE ProNroId = @id
         `)

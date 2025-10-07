@@ -461,7 +461,7 @@ export default function HomePage() {
                                   size="small"
                                 />
                               </TableCell>
-                              <TableCell>{articulo.Codigo || 'N/A'}</TableCell>
+                              <TableCell>{articulo.Codigo || ''}</TableCell>
                               <TableCell>{articulo.Descripcion || 'Sin descripción'}</TableCell>
                               <TableCell align="right">
                                 <Chip 
@@ -546,7 +546,7 @@ export default function HomePage() {
                                     size="small"
                                   />
                                 </TableCell>
-                                <TableCell>{cliente.NombreCliente || 'Cliente sin nombre'}</TableCell>
+                            <TableCell>{cliente.NombreCliente || ''}</TableCell>
                                 <TableCell align="right">
                                   <Chip 
                                     label={formatCurrencyARS(cliente.TotalFacturado)}

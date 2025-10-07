@@ -454,25 +454,25 @@ export default function ClientePage() {
                       <ListItem>
                         <ListItemText 
                           primary="Nombre" 
-                          secondary={datosCliente.entidad?.Entnombr || 'No especificado'} 
+                          secondary={datosCliente.entidad?.Entnombr || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="Razón Social" 
-                          secondary={datosCliente.entidad?.EntRazSoc || 'No especificado'} 
+                          secondary={datosCliente.entidad?.EntRazSoc || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="Email" 
-                          secondary={datosCliente.entidad?.Entemail || 'No especificado'} 
+                          secondary={datosCliente.entidad?.Entemail || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="CUIT" 
-                          secondary={datosCliente.entidad?.EntCUIT || 'No especificado'} 
+                          secondary={datosCliente.entidad?.EntCUIT || ''} 
                         />
                       </ListItem>
                     </List>
@@ -482,25 +482,25 @@ export default function ClientePage() {
                       <ListItem>
                         <ListItemText 
                           primary="Dirección" 
-                          secondary={datosCliente.entidad?.EntDomic || 'No especificado'} 
+                          secondary={datosCliente.entidad?.EntDomic || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="Localidad" 
-                          secondary={datosCliente.entidad?.EntLocal || 'No especificado'} 
+                          secondary={datosCliente.entidad?.EntLocal || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="Provincia" 
-                          secondary={datosCliente.entidad?.EntProvi || 'No especificado'} 
+                          secondary={datosCliente.entidad?.EntProvi || ''} 
                         />
                       </ListItem>
                       <ListItem>
                         <ListItemText 
                           primary="Teléfono" 
-                          secondary={datosCliente.cliente?.EntTelef || datosCliente.cliente?.EntTelef2 || 'No especificado'} 
+                          secondary={datosCliente.cliente?.EntTelef || datosCliente.cliente?.EntTelef2 || ''} 
                         />
                       </ListItem>
                     </List>
@@ -753,7 +753,7 @@ export default function ClientePage() {
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '120px' }}>
                                 <Chip 
-                                  label={factura.FactNumero || factura.numero || 'S/N'} 
+                                  label={factura.FactNumero || factura.numero || ''} 
                                   color="success" 
                                   variant="outlined" 
                                   size="small" 
@@ -762,10 +762,10 @@ export default function ClientePage() {
                               <TableCell sx={{ p: 1, width: '100px' }}>
                                 {factura.FactFecha || factura.fecha ? 
                                   new Date(factura.FactFecha || factura.fecha).toLocaleDateString('es-AR') : 
-                                  'Sin fecha'
+                                  ''
                                 }
                               </TableCell>
-                              <TableCell sx={{ p: 1, width: '100px' }}>{factura.FactTipo || factura.tipo || 'No especificado'}</TableCell>
+                              <TableCell sx={{ p: 1, width: '100px' }}>{factura.FactTipo || factura.tipo || ''}</TableCell>
                               <TableCell align="right" sx={{ p: 1, width: '120px' }}>
                                 <Chip 
                                   label={formatCurrencyARS(factura.FactTotal || factura.total || 0)}
@@ -775,7 +775,7 @@ export default function ClientePage() {
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '100px' }}>
                                 <Chip 
-                                  label={factura.FactEstado || factura.estado || 'Activa'} 
+                                  label={factura.FactEstado || factura.estado || ''} 
                                   color="info" 
                                   variant="outlined" 
                                   size="small" 

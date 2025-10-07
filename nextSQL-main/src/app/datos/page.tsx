@@ -101,6 +101,13 @@ export default function DatosPage() {
   
   const router = useRouter()
 
+  // Accesores tolerantes a mayúsculas/minúsculas y variantes de nombre de columna
+  const getId = (row: any) => row?.Entnroid ?? row?.EntNroId ?? row?.ENTNROID
+  const getNombre = (row: any) => row?.Entnombr ?? row?.EntNombr ?? row?.ENTNOMBR
+  const getEmail = (row: any) => row?.Entemail ?? row?.EntEmail ?? row?.ENTEMAIL
+  const getRazSoc = (row: any) => row?.EntRazSoc ?? row?.EntRazsoc ?? row?.ENTRAZSOC
+  const getTelef = (row: any) => row?.EntTelef ?? row?.Enttelef ?? row?.ENTTELEF
+
   // Función para redireccionar al cliente
   const redirectToClient = (clienteId: number) => {
     router.push(`/cliente/${clienteId}`)
@@ -152,14 +159,22 @@ export default function DatosPage() {
   }, [])
 
   // Filtrar datos basado en el término de búsqueda
-  const filteredDatos = datos.filter(entidad => 
-    entidad.Entnombr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.Entemail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.EntRazSoc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.EntLocal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.EntProvi?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    entidad.Entnroid.toString().includes(searchTerm)
-  )
+  const filteredDatos = datos.filter((entidad: any) => {
+    const nombre = getNombre(entidad)?.toLowerCase() || ''
+    const email = getEmail(entidad)?.toLowerCase() || ''
+    const razsoc = getRazSoc(entidad)?.toLowerCase() || ''
+    const local = (entidad.EntLocal ?? entidad.ENTLOCAL ?? entidad.Entlocal ?? '').toString().toLowerCase()
+    const provi = (entidad.EntProvi ?? entidad.ENTPROVI ?? entidad.Entprovi ?? '').toString().toLowerCase()
+    const idStr = (getId(entidad) ?? '').toString()
+    return (
+      nombre.includes(searchTerm.toLowerCase()) ||
+      email.includes(searchTerm.toLowerCase()) ||
+      razsoc.includes(searchTerm.toLowerCase()) ||
+      local.includes(searchTerm.toLowerCase()) ||
+      provi.includes(searchTerm.toLowerCase()) ||
+      idStr.includes(searchTerm)
+    )
+  })
 
   // Datos paginados
   const paginatedDatos = filteredDatos.slice(
@@ -238,15 +253,20 @@ export default function DatosPage() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {paginatedDatos.map((entidad, index) => (
-                          <React.Fragment key={entidad.Entnroid}>
+                        {paginatedDatos.map((entidad: any, index) => (
+                          <React.Fragment key={getId(entidad) ?? index}>
                             <TableRow sx={{ '&:nth-of-type(odd)': { bgcolor: 'action.hover' } }}>
                               <TableCell sx={{ p: 1, width: '80px' }}>
                                 <Button
                                   size="small"
                                   variant="contained"
                                   color="primary"
-                                  onClick={() => redirectToClient(entidad.Entnroid)}
+                                  onClick={() => {
+                                    const id = getId(entidad)
+                                    if (id !== undefined && id !== null) {
+                                      redirectToClient(Number(id))
+                                    }
+                                  }}
                                   title="Ver detalles del cliente"
                                   sx={{ minWidth: '60px', fontSize: '0.75rem' }}
                                 >
@@ -255,7 +275,7 @@ export default function DatosPage() {
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '80px' }}>
                                 <Chip 
-                  label={entidad.Entnroid} 
+                  label={getId(entidad)} 
                   variant="outlined" 
                   size="small" 
                   sx={{ 
@@ -265,12 +285,12 @@ export default function DatosPage() {
                 />
                               </TableCell>
                               <TableCell sx={{ p: 1, fontWeight: 'medium', width: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {entidad.Entnombr?.trim() || 'Sin nombre'}
+                                {getNombre(entidad)?.trim() || ''}
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '180px' }}>
-                                {entidad.Entemail?.trim() ? (
+                                {getEmail(entidad)?.trim() ? (
                                   <Chip 
-                    label={entidad.Entemail.trim()} 
+                    label={getEmail(entidad)!.trim()} 
                     variant="outlined" 
                     size="small" 
                     sx={{ 
@@ -278,15 +298,13 @@ export default function DatosPage() {
                       color: syndeoColors.accent.main 
                     }} 
                   />
-                                ) : (
-                                  <Chip label="Sin email" color="default" variant="outlined" size="small" />
-                                )}
+                                ) : null}
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '150px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {entidad.EntRazSoc?.trim() || 'Sin razón social'}
+                                {getRazSoc(entidad)?.trim() || ''}
                               </TableCell>
                               <TableCell sx={{ p: 1, width: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {entidad.EntTelef?.trim() || 'Sin teléfono'}
+                                {getTelef(entidad)?.trim() || ''}
                               </TableCell>
                             </TableRow>
                           </React.Fragment>
