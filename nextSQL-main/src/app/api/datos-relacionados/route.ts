@@ -32,6 +32,12 @@ export async function GET(request: NextRequest) {
     console.log(`[API RELACIONADOS] 🔍 Consultando datos relacionados para ID: ${id}...`)
     const datosRelacionados = await getDatosRelacionados(id)
     
+    // Validar y limpiar datos antes de enviar JSON
+    const datosLimpios = JSON.parse(JSON.stringify(datosRelacionados, (key, value) => {
+      // Reemplazar undefined con null para evitar errores de JSON
+      return value === undefined ? null : value
+    }))
+    
     console.log(`[API RELACIONADOS] ✅ Datos obtenidos para ID ${id}:`, {
       tieneCliente: !!datosRelacionados.cliente,
       tieneProveedor: !!datosRelacionados.proveedor
@@ -39,17 +45,18 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      data: datosRelacionados,
+      data: datosLimpios,
       entidadId: id
     })
     
   } catch (error: any) {
-    console.error('[API RELACIONADOS] ❌ Error:', error.message)
+    console.error('[API RELACIONADOS] ❌ Error completo:', error)
+    console.error('[API RELACIONADOS] ❌ Stack trace:', error.stack)
     
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: error.message || 'Error interno del servidor',
         data: {}
       },
       { status: 500 }
